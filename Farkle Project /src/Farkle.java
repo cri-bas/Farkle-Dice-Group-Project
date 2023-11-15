@@ -4,7 +4,9 @@ import java.awt.Container;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-
+import javax.swing.border.Border;
+//import javax.swing.border.LineBorder;
+import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -26,6 +28,9 @@ public class Farkle implements ActionListener {
     private final int HOT_DIE = 0;
     private final int SCORE_DIE = 1;
     private final int LOCKED_DIE = 2;
+    private Border selectedBorder = BorderFactory.createLineBorder(Color.RED, 4);
+    private List<Integer> selectedDiceIndices = new ArrayList<>();
+
     private Container buttonContainer = new Container();
     private JButton rollButton = new JButton("Roll");
     private JButton scoreButton = new JButton("Score");
@@ -114,7 +119,9 @@ public class Farkle implements ActionListener {
 
     @Override
     public void actionPerformed(ActionEvent e) {
+
         if (e.getSource().equals(rollButton)) {
+            clearDiceBorders();
             for (int a = 0; a < diceButtons.length; a++) {
                 if (buttonState[a] == HOT_DIE) {
                     int choice = (int) (Math.random() * 6);
@@ -253,10 +260,12 @@ public class Farkle implements ActionListener {
             for (int a = 0; a < diceButtons.length; a++) {
                 if (e.getSource().equals(diceButtons[a])) {
                     if (buttonState[a] == HOT_DIE) {
-                        diceButtons[a].setBackground(Color.RED);
+                        selectedDiceIndices.add(a); // Add the selected dice index
+                        diceButtons[a].setBorder(selectedBorder); // Set the border for selected dice
                         buttonState[a] = SCORE_DIE;
                     } else {
-                        diceButtons[a].setBackground(Color.LIGHT_GRAY);
+                        selectedDiceIndices.remove(Integer.valueOf(a)); // Remove the unselected dice index
+                        diceButtons[a].setBorder(null); // Remove the border for unselected dice
                         buttonState[a] = HOT_DIE;
                     }
                 }
@@ -320,11 +329,20 @@ public class Farkle implements ActionListener {
         for (int a = 0; a < diceButtons.length; a++) {
             diceButtons[a].setEnabled(false);
             buttonState[a] = HOT_DIE;
+            diceButtons[a].setBorder(null); // Clear borders when resetting dice
             diceButtons[a].setBackground(Color.LIGHT_GRAY);
         }
         rollButton.setEnabled(true);
         scoreButton.setEnabled(false);
         stopButton.setEnabled(false);
+
+        selectedDiceIndices.clear(); // Clear selected dice indices when resetting dice
+    }
+
+    private void clearDiceBorders() {
+        for (JButton button : diceButtons) {
+            button.setBorder(null);
+        }
     }
 
     private void displayWinnerMessage(String winnerName) {
