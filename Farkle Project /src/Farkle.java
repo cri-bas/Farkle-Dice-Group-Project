@@ -11,197 +11,361 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 
-//Single one or five, you get points (100, 50)
-//Three of a kind, you get 100 times dice value (ones will give 1000)
-//Four of a kind you get double what would get for triples
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class Farkle implements ActionListener {
 
-	JFrame frame = new JFrame();
-	Container diceContainer = new Container();
-	JButton[] diceButtons = new JButton[6];
-	ImageIcon[] imageIcons = new ImageIcon[6];
-	int[] buttonState = new int[6];
-	int[] dieValue = new int[6];
-	final int HOT_DIE = 0;
-	final int SCORE_DIE = 1;
-	final int LOCKED_DIE = 2;
-	Container buttonContainer = new Container();
-	JButton rollButton = new JButton("Roll");
-	JButton scoreButton = new JButton("Score");
-	JButton stopButton = new JButton("Stop");
-	Container labelContainer = new Container();
-	JLabel currentScoreLBL = new JLabel("Current Score: 0");
-	JLabel totalScoreLBL = new JLabel("Total Score: 0");
-	JLabel currentRoundLBL = new JLabel("Current Round: 0");
-	int currentScore = 0;
-	int totalScore = 0;
-	int currentRound = 1;
+    private JFrame frame = new JFrame();
+    private Container diceContainer = new Container();
+    private JButton[] diceButtons = new JButton[6];
+    private ImageIcon[] imageIcons = new ImageIcon[6];
+    private int[] buttonState = new int[6];
+    private int[] dieValue = new int[6];
+    private final int HOT_DIE = 0;
+    private final int SCORE_DIE = 1;
+    private final int LOCKED_DIE = 2;
+    private Container buttonContainer = new Container();
+    private JButton rollButton = new JButton("Roll");
+    private JButton scoreButton = new JButton("Score");
+    private JButton stopButton = new JButton("Stop");
 
-	public Farkle() {
-		frame.setSize(600, 600);
-		imageIcons[0] = new ImageIcon("./DiceImages/side1.png");
-		imageIcons[1] = new ImageIcon("./DiceImages/side2.png");
-		imageIcons[2] = new ImageIcon("./DiceImages/side3.png");
-		imageIcons[3] = new ImageIcon("./DiceImages/side4.png");
-		imageIcons[4] = new ImageIcon("./DiceImages/side5.png");
-		imageIcons[5] = new ImageIcon("./DiceImages/side6.png");
-		diceContainer.setLayout(new GridLayout(2, 3));
-		for (int a = 0; a < diceButtons.length; a++) {
-			diceButtons[a] = new JButton();
-			diceButtons[a].setIcon(imageIcons[a]);
-			diceButtons[a].setEnabled(false);
-			diceButtons[a].addActionListener(this);
-			diceContainer.add(diceButtons[a]);
-		}
-		buttonContainer.setLayout(new GridLayout(1, 3));
-		buttonContainer.add(rollButton);
-		rollButton.addActionListener(this);
-		buttonContainer.add(scoreButton);
-		scoreButton.addActionListener(this);
-		scoreButton.setEnabled(false);
-		buttonContainer.add(stopButton);
-		stopButton.addActionListener(this);
-		stopButton.setEnabled(false);
-		labelContainer.setLayout(new GridLayout(3, 1));
-		labelContainer.add(currentScoreLBL);
-		labelContainer.add(totalScoreLBL);
-		labelContainer.add(currentRoundLBL);
+    // Add a new button for the hint
+    private JButton hintButton = new JButton("Hint");
 
-		frame.setLayout(new BorderLayout());
-		frame.add(diceContainer, BorderLayout.CENTER);
-		frame.add(buttonContainer, BorderLayout.NORTH);
-		frame.add(labelContainer, BorderLayout.SOUTH);
+    private Container labelContainer = new Container();
+    private JLabel currentRoundLBL = new JLabel("Current Round: 0");
+    private JLabel currentPlayerLBL = new JLabel("Current Player: ");
+    private JLabel nextPlayerLBL = new JLabel("Next Player: ");
 
-		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.setVisible(true);
-	}
+    // Player-specific labels
+    private List<JLabel> playerLabels = new ArrayList<>();
 
-	public static void main(String[] args) {
-		new Farkle();
-	}
+    private List<Player> players = new ArrayList<>();
+    private int currentPlayerIndex = 0;
+    private int currentScore = 0;
 
-	@Override
-	public void actionPerformed(ActionEvent e) {
-		if (e.getSource().equals(rollButton)) {
-			for (int a = 0; a < diceButtons.length; a++) {
-				if (buttonState[a] == HOT_DIE) {
-					int choice = (int) (Math.random() * 6);
-					dieValue[a] = choice;
-					diceButtons[a].setIcon(imageIcons[choice]);
-					diceButtons[a].setEnabled(true);
-					rollButton.setEnabled(false);
-					scoreButton.setEnabled(true);
-					stopButton.setEnabled(true);
-				}
-			}
-		} else if (e.getSource().equals(scoreButton)) {
-			// Score button
-			int[] valueCount = new int[7];
-			for (int a = 0; a < diceButtons.length; a++) {
-				if (buttonState[a] == SCORE_DIE) {
-					valueCount[dieValue[a] + 1]++;
-				}
-			}
-			if ((valueCount[2] > 0 && valueCount[2] < 3) || (valueCount[3] > 0 && valueCount[3] < 3)
-					|| (valueCount[4] > 0 && valueCount[4] < 3) || (valueCount[6] > 0 && valueCount[6] < 3)) {
-				// invalid die selection
-				JOptionPane.showMessageDialog(frame, "Invalid Die Selected");
-			} else if (valueCount[1] == 0 && valueCount[2] == 0 && valueCount[3] == 0 &&
-					valueCount[4] == 0 && valueCount[5] == 0 && valueCount[6] == 0) {
-				Object[] options = { "Yes", "No" };
-				int dialogChoice = JOptionPane.showOptionDialog(frame, "Forfeit Score?", "Forfeit Score?",
-						JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[0]);
-				if (dialogChoice == JOptionPane.YES_OPTION) {
-					currentScore = 0;
-					currentRound++;
-					currentScoreLBL.setText("Current Score: " + currentScore);
-					currentRoundLBL.setText("Current Round: " + currentRound);
+    public Farkle() {
+        int numPlayers = Integer.parseInt(JOptionPane.showInputDialog("Enter the number of players:"));
 
-					resetDice();
-				}
-			} else {
-				if (valueCount[1] >= 3) {
-					currentScore += (valueCount[1] - 2) * 1000;
-				}
-				if (valueCount[2] >= 3) {
-					currentScore += (valueCount[2] - 2) * 200;
-				}
-				if (valueCount[3] >= 3) {
-					currentScore += (valueCount[3] - 2) * 300;
-				}
-				if (valueCount[4] >= 3) {
-					currentScore += (valueCount[4] - 2) * 400;
-				}
-				if (valueCount[5] >= 3) {
-					currentScore += (valueCount[5] - 2) * 500;
-				}
-				if (valueCount[6] >= 3) {
-					currentScore += (valueCount[6] - 2) * 600;
-				}
-				if (valueCount[1] < 3) {
-					currentScore += valueCount[1] * 100;
-				}
-				if (valueCount[5] < 3) {
-					currentScore += valueCount[1] * 50;
-				}
-				currentScoreLBL.setText("Current Score: " + currentScore);
-				for (int a = 0; a < diceButtons.length; a++) {
-					if (buttonState[a] == SCORE_DIE) {
-						buttonState[a] = LOCKED_DIE;
-						diceButtons[a].setBackground(Color.BLUE);
-					}
-					diceButtons[a].setEnabled(false);
-				}
-				int lockedCount = 0;
-				for (int a = 0; a < diceButtons.length; a++) {
-					if (buttonState[a] == LOCKED_DIE) {
-						lockedCount++;
-					}
-				}
-				if (lockedCount == 6) {
-					for (int a = 0; a < diceButtons.length; a++) {
-						buttonState[a] = HOT_DIE;
-						diceButtons[a].setBackground(Color.LIGHT_GRAY);
-					}
-				}
-				rollButton.setEnabled(true);
-				scoreButton.setEnabled(false);
-				stopButton.setEnabled(true);
-			}
-		} else if (e.getSource().equals(stopButton)) {
-			// Stop button
-			totalScore += currentScore;
-			currentScore = 0;
-			currentScoreLBL.setText("Current Score: " + currentScore);
-			totalScoreLBL.setText("Total Score: " + totalScore);
-			currentRound++;
-			currentRoundLBL.setText("Current Round: " + currentRound);
-			resetDice();
-		} else {
-			for (int a = 0; a < diceButtons.length; a++) {
-				if (e.getSource().equals(diceButtons[a])) {
-					if (buttonState[a] == HOT_DIE) {
-						diceButtons[a].setBackground(Color.RED);
-						buttonState[a] = SCORE_DIE;
-					} else {
-						diceButtons[a].setBackground(Color.LIGHT_GRAY);
-						buttonState[a] = HOT_DIE;
-					}
-				}
-			}
-		}
-	}
+        for (int i = 0; i < numPlayers; i++) {
+            String playerName = JOptionPane.showInputDialog("Enter player " + (i + 1) + "'s name:");
+            players.add(new Player(playerName));
+        }
 
-	void resetDice() {
-		for (int a = 0; a < diceButtons.length; a++) {
-			diceButtons[a].setEnabled(false);
-			buttonState[a] = HOT_DIE;
-			diceButtons[a].setBackground(Color.LIGHT_GRAY);
-		}
-		rollButton.setEnabled(true);
-		scoreButton.setEnabled(false);
-		stopButton.setEnabled(false);
-	}
+        frame.setSize(600, 600);
+        imageIcons[0] = new ImageIcon("./img/one.png");
+        imageIcons[1] = new ImageIcon("./img/two.png");
+        imageIcons[2] = new ImageIcon("./img/three.png");
+        imageIcons[3] = new ImageIcon("./img/four.png");
+        imageIcons[4] = new ImageIcon("./img/five.png");
+        imageIcons[5] = new ImageIcon("./img/six.png");
+        diceContainer.setLayout(new GridLayout(2, 3));
 
+        for (int a = 0; a < diceButtons.length; a++) {
+            diceButtons[a] = new JButton();
+            diceButtons[a].setIcon(imageIcons[a]);
+            diceButtons[a].setEnabled(false);
+            diceButtons[a].addActionListener(this);
+            diceContainer.add(diceButtons[a]);
+        }
+
+        buttonContainer.setLayout(new GridLayout(1, 4));
+        buttonContainer.add(rollButton);
+        rollButton.addActionListener(this);
+        buttonContainer.add(scoreButton);
+        scoreButton.addActionListener(this);
+        scoreButton.setEnabled(false);
+        buttonContainer.add(stopButton);
+        stopButton.addActionListener(this);
+
+        // Add a new button for the hint
+        hintButton.addActionListener(this);
+        buttonContainer.add(hintButton);
+
+        labelContainer.setLayout(new GridLayout(3 + numPlayers, 1));
+        labelContainer.add(currentRoundLBL);
+        labelContainer.add(currentPlayerLBL);
+        labelContainer.add(nextPlayerLBL);
+
+        // Initialize player-specific labels
+        for (Player player : players) {
+            JLabel playerLabel = new JLabel(
+                    player.getName() + ": Current Score = 0, Total Score = 0, Current Round = 1");
+            playerLabels.add(playerLabel);
+            labelContainer.add(playerLabel);
+        }
+
+        frame.setLayout(new BorderLayout());
+        frame.add(diceContainer, BorderLayout.CENTER);
+        frame.add(buttonContainer, BorderLayout.NORTH);
+        frame.add(labelContainer, BorderLayout.SOUTH);
+
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setVisible(true);
+
+        updatePlayerLabels();
+    }
+
+    public static void main(String[] args) {
+        new Farkle();
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        if (e.getSource().equals(rollButton)) {
+            for (int a = 0; a < diceButtons.length; a++) {
+                if (buttonState[a] == HOT_DIE) {
+                    int choice = (int) (Math.random() * 6);
+                    dieValue[a] = choice;
+                    diceButtons[a].setIcon(imageIcons[choice]);
+                    diceButtons[a].setEnabled(true);
+                }
+            }
+
+            // Set the state for buttons after rolling
+            rollButton.setEnabled(false);
+            scoreButton.setEnabled(true);
+            stopButton.setEnabled(false);
+        } else if (e.getSource().equals(scoreButton)) {
+            int[] valueCount = new int[7];
+            for (int a = 0; a < diceButtons.length; a++) {
+                if (buttonState[a] == SCORE_DIE) {
+                    valueCount[dieValue[a] + 1]++;
+                }
+            }
+
+            // Check for FARKLE condition
+            if (valueCount[1] == 0 && valueCount[2] == 0 && valueCount[3] == 0 && valueCount[4] == 0
+                    && valueCount[5] == 0 && valueCount[6] == 0) {
+                Object[] options = { "Yes", "No" };
+                int dialogChoice = JOptionPane.showOptionDialog(frame, "Forfeit your Score & Turn?", "FARKLED!",
+                        JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[0]);
+                if (dialogChoice == JOptionPane.YES_OPTION) {
+                    players.get(currentPlayerIndex).resetCurrentScore(); // Reset current score
+                    players.get(currentPlayerIndex).incrementCurrentRound();
+                    resetDice();
+                    currentScore = 0;
+                    updatePlayerLabels();
+
+                    // Move to the next player for multiplayer games
+                    currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
+                    updatePlayerLabels(); // Update labels for the new current player
+
+                    // Display FARKLED message
+                    JOptionPane.showMessageDialog(frame, "FARKLED! Turn forfeited.");
+
+                    // Check for winning condition
+                    if (players.get(currentPlayerIndex).getTotalScore() >= 10000) {
+                        displayWinnerMessage(players.get(currentPlayerIndex).getName());
+                    }
+                }
+            } else {
+                boolean validCombination = false;
+
+                // Check for valid scoring combinations
+                if (valueCount[1] > 0 || valueCount[5] > 0) {
+                    validCombination = true; // At least one 1 or 5 is selected
+                } else if (valueCount[2] >= 3 || valueCount[3] >= 3 || valueCount[4] >= 3 || valueCount[6] >= 3) {
+                    validCombination = true; // Three of a kind
+                } else if (valueCount[1] == 3 || valueCount[2] == 2 && valueCount[3] == 2 && valueCount[4] == 2
+                        && valueCount[5] == 2 && valueCount[6] == 2) {
+                    validCombination = true; // Three pairs
+                } else if (valueCount[1] == 1 && valueCount[2] == 1 && valueCount[3] == 1 && valueCount[4] == 1
+                        && valueCount[5] == 1 && valueCount[6] == 1) {
+                    validCombination = true; // Six-dice straight
+                }
+
+                if (validCombination) {
+                    int roundScore = 0;
+                    if (valueCount[1] >= 3) {
+                        roundScore += (valueCount[1] - 2) * 1000;
+                    }
+                    if (valueCount[2] >= 3) {
+                        roundScore += (valueCount[2] - 2) * 200;
+                    }
+                    if (valueCount[3] >= 3) {
+                        roundScore += (valueCount[3] - 2) * 300;
+                    }
+                    if (valueCount[4] >= 3) {
+                        roundScore += (valueCount[4] - 2) * 400;
+                    }
+                    if (valueCount[5] >= 3) {
+                        roundScore += (valueCount[5] - 2) * 500;
+                    }
+                    if (valueCount[6] >= 3) {
+                        roundScore += (valueCount[6] - 2) * 600;
+                    }
+                    if (valueCount[1] < 3) {
+                        roundScore += valueCount[1] * 100;
+                    }
+                    if (valueCount[5] < 3) {
+                        roundScore += valueCount[5] * 50;
+                    }
+
+                    players.get(currentPlayerIndex).addToCurrentScore(roundScore);
+                    updatePlayerLabels();
+                    for (int a = 0; a < diceButtons.length; a++) {
+                        if (buttonState[a] == SCORE_DIE) {
+                            buttonState[a] = LOCKED_DIE;
+                            diceButtons[a].setBackground(Color.BLUE);
+                        }
+                        diceButtons[a].setEnabled(false);
+                    }
+                    int lockedCount = 0;
+                    for (int a = 0; a < diceButtons.length; a++) {
+                        if (buttonState[a] == LOCKED_DIE) {
+                            lockedCount++;
+                        }
+                    }
+                    if (lockedCount == 6) {
+                        for (int a = 0; a < diceButtons.length; a++) {
+                            buttonState[a] = HOT_DIE;
+                            diceButtons[a].setBackground(Color.LIGHT_GRAY);
+                        }
+                        displayHotDieMessage();
+                    }
+                    rollButton.setEnabled(true);
+                    scoreButton.setEnabled(false);
+                    stopButton.setEnabled(true);
+                } else {
+                    JOptionPane.showMessageDialog(frame,
+                            "Invalid Scoring Combination! Please select valid scoring dice.");
+                }
+            }
+
+        } else if (e.getSource().equals(stopButton)) {
+            // Stop button
+            players.get(currentPlayerIndex).transferCurrentScore();
+            players.get(currentPlayerIndex).resetCurrentScore(); // this line reset current score
+            players.get(currentPlayerIndex).incrementCurrentRound();
+            currentPlayerIndex = (currentPlayerIndex + 1) % players.size(); // Switch to the next player
+            updatePlayerLabels();
+            resetDice();
+            players.get(currentPlayerIndex).addToTotalScore();
+        } else if (e.getSource().equals(hintButton)) {
+            // Display the hint based on the remaining dice
+            int remainingDice = (int) Arrays.stream(buttonState).filter(state -> state == HOT_DIE).count();
+            String hint = HintCalculator.getHint(remainingDice);
+            JOptionPane.showMessageDialog(frame, hint);
+        } else {
+            for (int a = 0; a < diceButtons.length; a++) {
+                if (e.getSource().equals(diceButtons[a])) {
+                    if (buttonState[a] == HOT_DIE) {
+                        diceButtons[a].setBackground(Color.RED);
+                        buttonState[a] = SCORE_DIE;
+                    } else {
+                        diceButtons[a].setBackground(Color.LIGHT_GRAY);
+                        buttonState[a] = HOT_DIE;
+                    }
+                }
+            }
+        }
+    }
+
+    // Player class
+    private class Player {
+        private String name;
+        private int currentScore;
+        private int totalScore;
+        private int currentRound;
+
+        public Player(String name) {
+            this.name = name;
+            this.currentScore = 0;
+            this.totalScore = 0;
+            this.currentRound = 1;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public int getCurrentScore() {
+            return currentScore;
+        }
+
+        public void addToCurrentScore(int score) {
+            this.currentScore += score;
+        }
+
+        public void transferCurrentScore() {
+            totalScore += currentScore;
+        }
+
+        public void resetCurrentScore() {
+            currentScore = 0;
+        }
+
+        public int getTotalScore() {
+            return totalScore;
+        }
+
+        public void addToTotalScore() {
+            totalScore += currentScore;
+        }
+
+        public int getCurrentRound() {
+            return currentRound;
+        }
+
+        public void incrementCurrentRound() {
+            this.currentRound++;
+        }
+
+    }
+
+    void resetDice() {
+        for (int a = 0; a < diceButtons.length; a++) {
+            diceButtons[a].setEnabled(false);
+            buttonState[a] = HOT_DIE;
+            diceButtons[a].setBackground(Color.LIGHT_GRAY);
+        }
+        rollButton.setEnabled(true);
+        scoreButton.setEnabled(false);
+        stopButton.setEnabled(false);
+    }
+
+    private void displayWinnerMessage(String winnerName) {
+        String message = winnerName + " Wins!";
+        Object[] options = { "Exit" };
+        int choice = JOptionPane.showOptionDialog(frame, message, "Game Over", JOptionPane.DEFAULT_OPTION,
+                JOptionPane.INFORMATION_MESSAGE, null, options, options[0]);
+
+        if (choice == JOptionPane.OK_OPTION) {
+            System.exit(0); // Terminate the game
+        }
+    }
+
+    private void displayHotDieMessage() {
+        String message = "You get to roll again!";
+        Object[] options = { "Nice!" };
+        int ok = JOptionPane.showOptionDialog(frame, message, "You got an Hot Die!", JOptionPane.DEFAULT_OPTION,
+                JOptionPane.INFORMATION_MESSAGE, null, options, options[0]);
+        if (ok == JOptionPane.OK_OPTION) {
+        }
+    }
+
+    private void updatePlayerLabels() {
+        Player currentPlayer = players.get(currentPlayerIndex);
+        Player nextPlayer = players.get((currentPlayerIndex + 1) % players.size());
+
+        currentPlayerLBL.setText("Current Player: " + currentPlayer.getName());
+        nextPlayerLBL.setText("Next Player: " + nextPlayer.getName());
+        currentRoundLBL.setText("Current Round: " + currentPlayer.getCurrentRound());
+
+        // Update player-specific labels
+        for (int i = 0; i < players.size(); i++) {
+            Player player = players.get(i);
+            JLabel playerLabel = playerLabels.get(i);
+            playerLabel.setText(player.getName() + ": Current Score = " + player.getCurrentScore() + ", Total Score = "
+                    + player.getTotalScore() + ", Current Round = " + player.getCurrentRound());
+
+            // Check for winning condition
+            if (player.getTotalScore() >= 1000) {
+                displayWinnerMessage(player.getName());
+            }
+        }
+    }
 }
