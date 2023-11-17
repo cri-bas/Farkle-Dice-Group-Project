@@ -15,7 +15,9 @@ import javax.swing.JOptionPane;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Farkle implements ActionListener {
 
@@ -44,7 +46,10 @@ public class Farkle implements ActionListener {
     private JLabel currentPlayerLBL = new JLabel("Current Player: ");
     private JLabel nextPlayerLBL = new JLabel("Next Player: ");
 
+    private Map<String, Integer> gamesWonTracker = new HashMap<>();
+
     // Player-specific labels
+    private int playerType; // 0 for multiplayer, 1 for vs PC
     private List<JLabel> playerLabels = new ArrayList<>();
 
     private List<Player> players = new ArrayList<>();
@@ -71,6 +76,11 @@ public class Farkle implements ActionListener {
             String playerName = JOptionPane.showInputDialog("Enter your name:");
             players.add(new Player(playerName));
             players.add(new Player("Computer"));
+
+            // Initialize games won tracker for each player
+            for (Player player : players) {
+                gamesWonTracker.put(player.getName(), 0);
+            }
         }
 
         frame.setSize(600, 600);
@@ -125,9 +135,8 @@ public class Farkle implements ActionListener {
         frame.setVisible(true);
 
         updatePlayerLabels();
-    }
 
-    private int playerType; // 0 for multiplayer, 1 for vs PC
+    }
 
     public static void main(String[] args) {
         new Farkle();
@@ -135,160 +144,107 @@ public class Farkle implements ActionListener {
 
     @Override
     public void actionPerformed(ActionEvent e) {
+        // Determine the game mode and player type
+        boolean isVsComputer = (playerType == 1);
+        boolean isComputerPlayer = (currentPlayerIndex == 1);
 
-        if (e.getSource().equals(rollButton)) {
-            clearDiceBorders();
-            for (int a = 0; a < diceButtons.length; a++) {
-                if (buttonState[a] == HOT_DIE) {
-                    int choice = (int) (Math.random() * 6);
-                    dieValue[a] = choice;
-                    diceButtons[a].setIcon(imageIcons[choice]);
-                    diceButtons[a].setEnabled(true);
+        if (isVsComputer && isComputerPlayer) {
+            // Vs PC logic for computer's turn
+            performVSComputerActions();
+        } else {
+            // Multiplayer logic for human player's turn
+            System.out.println("Reached actionPerformed - before if conditions");
+
+            if (e.getSource().equals(rollButton)) {
+                clearDiceBorders();
+                for (int a = 0; a < diceButtons.length; a++) {
+                    if (buttonState[a] == HOT_DIE) {
+                        int choice = (int) (Math.random() * 6);
+                        dieValue[a] = choice;
+                        diceButtons[a].setIcon(imageIcons[choice]);
+                        diceButtons[a].setEnabled(true);
+                    }
                 }
-            }
+                // Set the state for buttons after rolling
+                rollButton.setEnabled(false);
+                scoreButton.setEnabled(true);
+                stopButton.setEnabled(false);
+            } else if (e.getSource().equals(scoreButton)) {
+                System.out.println("Reached actionPerformed - inside scoreButton condition");
 
-            // Set the state for buttons after rolling
-            rollButton.setEnabled(false);
-            scoreButton.setEnabled(true);
-            stopButton.setEnabled(false);
-        } else if (e.getSource().equals(scoreButton)) {
-            if (playerType == 1 && currentPlayerIndex == 1) {
-                // Vs PC logic for computer's turn
-                simulateComputerTurn();
-            } else {
                 int[] valueCount = new int[7];
                 for (int a = 0; a < diceButtons.length; a++) {
                     if (buttonState[a] == SCORE_DIE) {
                         valueCount[dieValue[a] + 1]++;
                     }
                 }
-
                 // Check for FARKLE condition
                 if (valueCount[1] == 0 && valueCount[2] == 0 && valueCount[3] == 0 && valueCount[4] == 0
                         && valueCount[5] == 0 && valueCount[6] == 0) {
-                    Object[] options = { "Yes", "No" };
-                    int dialogChoice = JOptionPane.showOptionDialog(frame, "Forfeit your Score & Turn?", "FARKLED!",
-                            JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[0]);
-                    if (dialogChoice == JOptionPane.YES_OPTION) {
-                        players.get(currentPlayerIndex).resetCurrentScore(); // Reset current score
-                        players.get(currentPlayerIndex).incrementCurrentRound();
-                        resetDice();
-                        currentScore = 0;
-                        updatePlayerLabels();
-
-                        // Move to the next player for multiplayer games
-                        currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
-                        updatePlayerLabels(); // Update labels for the new current player
-
-                        // Display FARKLED message
-                        JOptionPane.showMessageDialog(frame, "FARKLED! Turn forfeited.");
-
-                        // Check for winning condition
-                        if (players.get(currentPlayerIndex).getTotalScore() >= 10000) {
-                            displayWinnerMessage(players.get(currentPlayerIndex).getName());
-                        }
-                    }
+                    handleFarkle();
                 } else {
-                    boolean validCombination = false;
+                    // Continue with the multiplayer logic
+                    performMultiplayerActions(valueCount);
 
-                    // Check for valid scoring combinations
-                    if (valueCount[1] > 0 || valueCount[5] > 0) {
-                        validCombination = true; // At least one 1 or 5 is selected
-                    } else if (valueCount[2] >= 3 || valueCount[3] >= 3 || valueCount[4] >= 3 || valueCount[6] >= 3) {
-                        validCombination = true; // Three of a kind
-                    } else if (valueCount[1] == 3 || valueCount[2] == 2 && valueCount[3] == 2 && valueCount[4] == 2
-                            && valueCount[5] == 2 && valueCount[6] == 2) {
-                        validCombination = true; // Three pairs
-                    } else if (valueCount[1] == 1 && valueCount[2] == 1 && valueCount[3] == 1 && valueCount[4] == 1
-                            && valueCount[5] == 1 && valueCount[6] == 1) {
-                        validCombination = true; // Six-dice straight
-                    }
-
-                    if (validCombination) {
-                        int roundScore = 0;
-                        if (valueCount[1] >= 3) {
-                            roundScore += (valueCount[1] - 2) * 1000;
-                        }
-                        if (valueCount[2] >= 3) {
-                            roundScore += (valueCount[2] - 2) * 200;
-                        }
-                        if (valueCount[3] >= 3) {
-                            roundScore += (valueCount[3] - 2) * 300;
-                        }
-                        if (valueCount[4] >= 3) {
-                            roundScore += (valueCount[4] - 2) * 400;
-                        }
-                        if (valueCount[5] >= 3) {
-                            roundScore += (valueCount[5] - 2) * 500;
-                        }
-                        if (valueCount[6] >= 3) {
-                            roundScore += (valueCount[6] - 2) * 600;
-                        }
-                        if (valueCount[1] < 3) {
-                            roundScore += valueCount[1] * 100;
-                        }
-                        if (valueCount[5] < 3) {
-                            roundScore += valueCount[5] * 50;
-                        }
-
-                        players.get(currentPlayerIndex).addToCurrentScore(roundScore);
-                        updatePlayerLabels();
-                        for (int a = 0; a < diceButtons.length; a++) {
-                            if (buttonState[a] == SCORE_DIE) {
-                                buttonState[a] = LOCKED_DIE;
-                                diceButtons[a].setBackground(Color.BLUE);
-                            }
-                            diceButtons[a].setEnabled(false);
-                        }
-                        int lockedCount = 0;
-                        for (int a = 0; a < diceButtons.length; a++) {
-                            if (buttonState[a] == LOCKED_DIE) {
-                                lockedCount++;
-                            }
-                        }
-                        if (lockedCount == 6) {
-                            for (int a = 0; a < diceButtons.length; a++) {
-                                buttonState[a] = HOT_DIE;
-                                diceButtons[a].setBackground(Color.LIGHT_GRAY);
-                            }
-                            displayHotDieMessage();
-                        }
-                        rollButton.setEnabled(true);
-                        scoreButton.setEnabled(false);
-                        stopButton.setEnabled(true);
-                    } else {
-                        JOptionPane.showMessageDialog(frame,
-                                "Invalid Scoring Combination! Please select valid scoring dice.");
-                    }
                 }
 
-            }
-        } else if (e.getSource().equals(stopButton)) {
-            // Stop button
-            players.get(currentPlayerIndex).transferCurrentScore();
-            players.get(currentPlayerIndex).resetCurrentScore(); // this line reset current score
-            players.get(currentPlayerIndex).incrementCurrentRound();
-            currentPlayerIndex = (currentPlayerIndex + 1) % players.size(); // Switch to the next player
-            updatePlayerLabels();
-            resetDice();
-            players.get(currentPlayerIndex).addToTotalScore();
-        } else if (e.getSource().equals(hintButton)) {
-            // Display the hint based on the remaining dice
-            int remainingDice = (int) Arrays.stream(buttonState).filter(state -> state == HOT_DIE).count();
-            String hint = HintCalculator.getHint(remainingDice);
-            JOptionPane.showMessageDialog(frame, hint);
-        } else {
-            for (int a = 0; a < diceButtons.length; a++) {
-                if (e.getSource().equals(diceButtons[a])) {
-                    if (buttonState[a] == HOT_DIE) {
-                        selectedDiceIndices.add(a); // Add the selected dice index
-                        diceButtons[a].setBorder(selectedBorder); // Set the border for selected dice
-                        buttonState[a] = SCORE_DIE;
-                    } else {
-                        selectedDiceIndices.remove(Integer.valueOf(a)); // Remove the unselected dice index
-                        diceButtons[a].setBorder(null); // Remove the border for unselected dice
-                        buttonState[a] = HOT_DIE;
+            } else if (e.getSource().equals(stopButton)) {
+
+                System.out.println("Reached actionPerformed - inside stopButton condition");
+
+                // Stop button
+                players.get(currentPlayerIndex).transferCurrentScore();
+                players.get(currentPlayerIndex).resetCurrentScore();
+                players.get(currentPlayerIndex).incrementCurrentRound();
+
+                currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
+                updatePlayerLabels();
+                resetDice();
+                players.get(currentPlayerIndex).addToTotalScore();
+
+                // Check for winning condition
+                checkForWinner();
+                System.out.println("Reached actionPerformed - inside stopButton end condition");
+
+            } else if (e.getSource().equals(hintButton)) {
+                // Display the hint based on the remaining dice
+                int remainingDice = (int) Arrays.stream(buttonState).filter(state -> state == HOT_DIE).count();
+                String hint = HintCalculator.getHint(remainingDice);
+                JOptionPane.showMessageDialog(frame, hint);
+            } else {
+                // Handling dice button clicks
+                for (int a = 0; a < diceButtons.length; a++) {
+                    if (e.getSource().equals(diceButtons[a])) {
+                        if (buttonState[a] == HOT_DIE) {
+                            selectedDiceIndices.add(a);
+                            diceButtons[a].setBorder(selectedBorder);
+                            buttonState[a] = SCORE_DIE;
+                        } else {
+                            selectedDiceIndices.remove(Integer.valueOf(a));
+                            diceButtons[a].setBorder(null);
+                            buttonState[a] = HOT_DIE;
+                        }
                     }
+                }
+            }
+            System.out.println("Reached actionPerformed - outside stopButton condition");
+
+            // Check for winning condition here as well
+            if (players.get(currentPlayerIndex).getTotalScore() >= 1000) {
+                String winnerName = players.get(currentPlayerIndex).getName();
+                displayWinnerMessage(winnerName);
+
+                // Ask if players want to continue
+                int option = JOptionPane.showConfirmDialog(frame,
+                        "Do you want to continue playing with the same players?",
+                        "Game Over", JOptionPane.YES_NO_OPTION);
+
+                if (option == JOptionPane.YES_OPTION) {
+                    // Reset the game and continue
+                    resetGame();
+                } else {
+                    // Exit the game
+                    System.exit(0);
                 }
             }
         }
@@ -344,6 +300,14 @@ public class Farkle implements ActionListener {
             this.currentRound++;
         }
 
+        public void resetTotalScore() {
+            this.totalScore = 0;
+        }
+
+        public void resetCurrentRound() {
+            this.currentRound = 1;
+        }
+
     }
 
     void resetDice() {
@@ -367,13 +331,21 @@ public class Farkle implements ActionListener {
     }
 
     private void displayWinnerMessage(String winnerName) {
+        // Update games won tracker
+        int gamesWon = gamesWonTracker.getOrDefault(winnerName, 0);
+        gamesWonTracker.put(winnerName, gamesWon + 1);
+
         String message = winnerName + " Wins!";
-        Object[] options = { "Exit" };
-        int choice = JOptionPane.showOptionDialog(frame, message, "Game Over", JOptionPane.DEFAULT_OPTION,
+        Object[] options = { "Continue", "Exit" };
+        int choice = JOptionPane.showOptionDialog(frame, message, "Game Over", JOptionPane.YES_NO_OPTION,
                 JOptionPane.INFORMATION_MESSAGE, null, options, options[0]);
 
-        if (choice == JOptionPane.OK_OPTION) {
-            System.exit(0); // Terminate the game
+        if (choice == JOptionPane.YES_OPTION) {
+            // Continue the game
+            resetGame();
+        } else {
+            // Exit the game
+            System.exit(0);
         }
     }
 
@@ -399,7 +371,8 @@ public class Farkle implements ActionListener {
             Player player = players.get(i);
             JLabel playerLabel = playerLabels.get(i);
             playerLabel.setText(player.getName() + ": Current Score = " + player.getCurrentScore() + ", Total Score = "
-                    + player.getTotalScore() + ", Current Round = " + player.getCurrentRound());
+                    + player.getTotalScore() + ", Current Round = " + player.getCurrentRound() + ", Games Won = "
+                    + gamesWonTracker.getOrDefault(player.getName(), 0));
 
             // Check for winning condition
             if (player.getTotalScore() >= 1000) {
@@ -408,45 +381,328 @@ public class Farkle implements ActionListener {
         }
     }
 
-    private void simulateComputerTurn() {
-        // Add logic to simulate the computer's turn
-        // You can use the existing logic for rolling, scoring, etc.
-        // Adjust the logic based on how you want the computer to play
-        // For simplicity, you might want to add a delay to make it seem like the
-        // computer is "thinking"
-        // Update player labels after the computer's turn
+    private void performVSComputerActions() {
+        if (playerType == 1 && currentPlayerIndex == 1) {
 
-        rollButton.setEnabled(false); // Disable roll button during computer's turn
-        scoreButton.setEnabled(false);
-        stopButton.setEnabled(false);
+            // Simulate the computer's actions
+            simulateComputerActions();
 
-        // Simulate computer's "thinking" with a delay
-        try {
-            Thread.sleep(1000); // Adjust the delay time as needed
-        } catch (InterruptedException ex) {
-            ex.printStackTrace();
+            // After the computer's turn, enable buttons and update labels
+            rollButton.setEnabled(true);
+            scoreButton.setEnabled(true);
+            stopButton.setEnabled(true);
+            updatePlayerLabels();
+            // Check for winning condition
+            checkForWinner();
         }
-
-        // Simulate the computer's actions (you might need to customize this based on
-        // your game)
-        simulateComputerActions();
-
-        // After the computer's turn, enable buttons and update labels
-        rollButton.setEnabled(true);
-        scoreButton.setEnabled(true);
-        stopButton.setEnabled(true);
-        updatePlayerLabels();
     }
 
     private void simulateComputerActions() {
-        // Add logic to simulate the computer's actions (e.g., rolling, scoring)
-        // Adjust the logic based on how you want the computer to play
-        // This could involve calling methods from the existing game logic
+        int maxRolls = 3; // Maximum number of rolls for the computer
+        int rolls = 0;
+        int totalComputerScore = 0; // Track total computer score
 
-        // For example:
-        // computerRoll();
-        // computerScore();
+        while (rolls < maxRolls) {
+
+            int[] computerValueCount = new int[7];
+            for (int a = 0; a < diceButtons.length; a++) {
+                if (buttonState[a] == SCORE_DIE) {
+                    computerValueCount[dieValue[a] + 1]++;
+                }
+            }
+
+            // Simulate computer rolling
+            for (int a = 0; a < diceButtons.length; a++) {
+                if (buttonState[a] == HOT_DIE) {
+                    int choice = (int) (Math.random() * 6);
+                    dieValue[a] = choice;
+                    diceButtons[a].setIcon(imageIcons[choice]);
+                    diceButtons[a].setEnabled(true);
+                }
+            }
+
+            // Check for FARKLE condition
+            if (computerValueCount[1] == 0 && computerValueCount[2] == 0 && computerValueCount[3] == 0
+                    && computerValueCount[4] == 0 && computerValueCount[5] == 0 && computerValueCount[6] == 0) {
+                // Display FARKLED message
+                JOptionPane.showMessageDialog(frame, " FARKLED! Turn forfeited.");
+                break;
+            }
+
+            // Check for valid scoring combinations
+            boolean validCombination = checkForValidCombination(computerValueCount);
+
+            if (validCombination) {
+                // Track the total computer score
+                totalComputerScore += chooseAndScoreCombination(computerValueCount);
+
+                // Check for conditions to stop rolling
+                if (currentScore >= 250 || totalComputerScore >= 250 || rolls == maxRolls - 1) {
+
+                    scoreButton.doClick();
+                    // Simulate clicking the "Stop" button
+                    stopButton.doClick();
+                    break;
+                }
+
+                rolls++;
+            } else {
+                // Display FARKLED message
+                JOptionPane.showMessageDialog(frame, "Computer got FARKLED! Turn forfeited.");
+                // Simulate clicking the "stop" button (to end the turn with no points)
+                stopButton.doClick();
+                break;
+            }
+        }
+
+        // Bank the computer's score
+        players.get(currentPlayerIndex).addToCurrentScore(totalComputerScore);
+        updatePlayerLabels();
+
+        // Move to the next player for VS PC games
+        currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
+        updatePlayerLabels(); // Update labels for the new current player
     }
 
-    // ... existing code
+    private boolean checkForValidCombination(int[] valueCount) {
+        // Check for valid scoring combinations
+        return (valueCount[1] > 0 || valueCount[5] > 0
+                || valueCount[2] >= 3 || valueCount[3] >= 3 || valueCount[4] >= 3 || valueCount[6] >= 3
+                || (valueCount[1] == 2 && valueCount[2] == 2 && valueCount[3] == 2 && valueCount[4] == 2
+                        && valueCount[5] == 2 && valueCount[6] == 2)
+                || (valueCount[1] == 1 && valueCount[2] == 1 && valueCount[3] == 1 && valueCount[4] == 1
+                        && valueCount[5] == 1 && valueCount[6] == 1));
+    }
+
+    private int chooseAndScoreCombination(int[] computerValueCount) {
+        // Loop through values 1 to 6
+        for (int value = 1; value <= 6; value++) {
+            if (computerValueCount[value] >= 3) {
+                // Simulate choosing the combination
+                String message = "Computer chose combination for value " + value;
+                JOptionPane.showMessageDialog(frame, message);
+
+                // Simulate clicking the "Score" button
+                scoreButton.doClick();
+
+                // Simulate choosing and scoring a combination
+                int roundScore = computeComputerScore(computerValueCount);
+                players.get(currentPlayerIndex).addToCurrentScore(roundScore);
+                updatePlayerLabels();
+
+                // Check for winning condition
+                if (players.get(currentPlayerIndex).getTotalScore() >= 10000) {
+                    displayWinnerMessage(players.get(currentPlayerIndex).getName());
+                    return roundScore; // Return the score obtained
+                }
+
+                // Check for hot die condition
+                int lockedCount = 0;
+                for (int a = 0; a < diceButtons.length; a++) {
+                    if (buttonState[a] == LOCKED_DIE) {
+                        lockedCount++;
+                    }
+                }
+
+                // Display hot die message and reset dice
+                if (lockedCount == 6) {
+                    for (int a = 0; a < diceButtons.length; a++) {
+                        buttonState[a] = HOT_DIE;
+                        diceButtons[a].setBackground(Color.LIGHT_GRAY);
+                    }
+                    displayHotDieMessage();
+                }
+
+                return roundScore; // Return the score obtained
+            }
+        }
+
+        // If no valid combination is found, simulate a Farkle
+        String farkleMessage = "Computer rolled a Farkle!";
+        JOptionPane.showMessageDialog(frame, farkleMessage);
+
+        // Simulate clicking the "Stop" button (to end the turn with no points)
+        stopButton.doClick();
+
+        return 0; // Return 0 as the score (or another appropriate value)
+
+    }
+
+    public int computeComputerScore(int[] computerValueCount) {
+        // Compute the computer's score based on the valid combinations
+        int computerroundScore = 0;
+
+        if (computerValueCount[1] >= 3) {
+            computerroundScore += (computerValueCount[1] - 2) * 1000;
+        }
+        if (computerValueCount[2] >= 3) {
+            computerroundScore += (computerValueCount[2] - 2) * 200;
+        }
+        if (computerValueCount[3] >= 3) {
+            computerroundScore += (computerValueCount[3] - 2) * 300;
+        }
+        if (computerValueCount[4] >= 3) {
+            computerroundScore += (computerValueCount[4] - 2) * 400;
+        }
+        if (computerValueCount[5] >= 3) {
+            computerroundScore += (computerValueCount[5] - 2) * 500;
+        }
+        if (computerValueCount[6] >= 3) {
+            computerroundScore += (computerValueCount[6] - 2) * 600;
+        }
+        if (computerValueCount[1] < 3) {
+            computerroundScore += computerValueCount[1] * 100;
+        }
+        if (computerValueCount[5] < 3) {
+            computerroundScore += computerValueCount[5] * 50;
+        }
+
+        return computerroundScore;
+    }
+
+    private void handleFarkle() {
+        players.get(currentPlayerIndex).resetCurrentScore(); // Reset current score
+        players.get(currentPlayerIndex).incrementCurrentRound();
+        resetDice();
+        updatePlayerLabels();
+
+        // Move to the next player for VS PC games
+        currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
+        updatePlayerLabels(); // Update labels for the new current player
+
+        // Display FARKLED message
+        JOptionPane.showMessageDialog(frame, "FARKLED! Turn forfeited.");
+
+        // Check for winning condition
+        if (players.get(currentPlayerIndex).getTotalScore() >= 10000) {
+            displayWinnerMessage(players.get(currentPlayerIndex).getName());
+        }
+    }
+
+    private void performMultiplayerActions(int[] valueCount) {
+        System.out.println("Reached performMultiplayerActions - begginning");
+
+        // Multiplayer logic for human player's turn
+        boolean validCombination = false;
+        System.out.println("checking for valid scoring combinations performMultiplayerActions");
+        // Check for valid scoring combinations
+        if (valueCount[1] > 0 || valueCount[5] > 0) {
+            validCombination = true; // At least one 1 or 5 is selected
+        } else if (valueCount[2] >= 3 || valueCount[3] >= 3 || valueCount[4] >= 3 || valueCount[6] >= 3) {
+            validCombination = true; // Three of a kind
+        } else if (valueCount[1] == 3 || valueCount[2] == 2 && valueCount[3] == 2 && valueCount[4] == 2
+                && valueCount[5] == 2 && valueCount[6] == 2) {
+            validCombination = true; // Three pairs
+        } else if (valueCount[1] == 1 && valueCount[2] == 1 && valueCount[3] == 1 && valueCount[4] == 1
+                && valueCount[5] == 1 && valueCount[6] == 1) {
+            validCombination = true; // Six-dice straight
+        }
+        System.out.println("Reached if validCombination in performMultiplayerActions");
+        if (validCombination) {
+            int roundScore = 0;
+            if (valueCount[1] >= 3) {
+                roundScore += (valueCount[1] - 2) * 1000;
+            }
+            if (valueCount[2] >= 3) {
+                roundScore += (valueCount[2] - 2) * 200;
+            }
+            if (valueCount[3] >= 3) {
+                roundScore += (valueCount[3] - 2) * 300;
+            }
+            if (valueCount[4] >= 3) {
+                roundScore += (valueCount[4] - 2) * 400;
+            }
+            if (valueCount[5] >= 3) {
+                roundScore += (valueCount[5] - 2) * 500;
+            }
+            if (valueCount[6] >= 3) {
+                roundScore += (valueCount[6] - 2) * 600;
+            }
+            if (valueCount[1] < 3) {
+                roundScore += valueCount[1] * 100;
+            }
+            if (valueCount[5] < 3) {
+                roundScore += valueCount[5] * 50;
+            }
+            System.out.println("Reached adding score in performMultiplayerActions");
+            players.get(currentPlayerIndex).addToCurrentScore(roundScore);
+            updatePlayerLabels();
+            for (int a = 0; a < diceButtons.length; a++) {
+                if (buttonState[a] == SCORE_DIE) {
+                    buttonState[a] = LOCKED_DIE;
+                    diceButtons[a].setBackground(Color.BLUE);
+                }
+                diceButtons[a].setEnabled(false);
+            }
+            int lockedCount = 0;
+            for (int a = 0; a < diceButtons.length; a++) {
+                if (buttonState[a] == LOCKED_DIE) {
+                    lockedCount++;
+                }
+            }
+            if (lockedCount == 6) {
+                for (int a = 0; a < diceButtons.length; a++) {
+                    buttonState[a] = HOT_DIE;
+                    diceButtons[a].setBackground(Color.LIGHT_GRAY);
+                }
+                displayHotDieMessage();
+            }
+            rollButton.setEnabled(true);
+            scoreButton.setEnabled(false);
+            stopButton.setEnabled(true);
+        } else {
+            JOptionPane.showMessageDialog(frame,
+                    "Invalid Scoring Combination! Please select valid scoring dice.");
+        }
+        System.out.println("Reached end of performMultiplayerActions");
+    }
+
+    private void checkForWinner() {
+        // Check for winning condition
+        System.out.println("Checking for winner...");
+
+        if (players.get(currentPlayerIndex).getTotalScore() >= 1000) {
+            String winnerName = players.get(currentPlayerIndex).getName();
+            displayWinnerMessage(winnerName);
+            System.out.println("passed winnerName in checkForWinner");
+
+            // Ask if players want to continue
+            int option = JOptionPane.showConfirmDialog(frame,
+                    "Do you want to continue playing with the same players?",
+                    "Game Over", JOptionPane.YES_NO_OPTION);
+
+            if (option == JOptionPane.YES_OPTION) {
+                // Reset the game and continue
+                resetGame();
+            } else {
+                // Exit the game
+                System.exit(0);
+            }
+        }
+        System.out.println("Winner check complete.");
+
+    }
+
+    private void resetGame() {
+        // Reset game state for each player
+        for (Player player : players) {
+            player.resetCurrentScore();
+            player.resetTotalScore();
+            player.resetCurrentRound();
+        }
+
+        // Reset game-related variables
+        currentPlayerIndex = 0;
+        currentScore = 0;
+
+        // Clear game tracker
+        selectedDiceIndices.clear();
+
+        // Reset dice
+        resetDice();
+
+        // Update player labels
+        updatePlayerLabels();
+    }
+
 }
