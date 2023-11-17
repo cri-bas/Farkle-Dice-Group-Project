@@ -53,21 +53,24 @@ public class Farkle implements ActionListener {
 
     public Farkle() {
         // Add an option for player type
+        int numPlayers = 0;
         Object[] playerTypeOptions = { "Multiplayer", "Vs PC" };
         playerType = JOptionPane.showOptionDialog(frame, "Choose Player Type:", "Player Type",
                 JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, playerTypeOptions,
                 playerTypeOptions[0]);
 
-        int numPlayers;
+        // type 0 for multiplayer
         if (playerType == 0) {
             numPlayers = Integer.parseInt(JOptionPane.showInputDialog("Enter the number of players:"));
-        } else {
-            numPlayers = 1; // Vs PC, so only one player
-        }
-
-        for (int i = 0; i < numPlayers; i++) {
-            String playerName = JOptionPane.showInputDialog("Enter player " + (i + 1) + "'s name:");
+            for (int i = 0; i < numPlayers; i++) {
+                String playerName = JOptionPane.showInputDialog("Enter player " + (i + 1) + "'s name:");
+                players.add(new Player(playerName));
+            }
+        } else if (playerType == 1) {
+            numPlayers = 2; // Vs PC, so two players (human and computer)
+            String playerName = JOptionPane.showInputDialog("Enter your name:");
             players.add(new Player(playerName));
+            players.add(new Player("Computer"));
         }
 
         frame.setSize(600, 600);
@@ -105,14 +108,14 @@ public class Farkle implements ActionListener {
         labelContainer.add(currentPlayerLBL);
         labelContainer.add(nextPlayerLBL);
 
-        // Initialize player-specific labels
-        for (Player player : players) {
+        // Initialize player-specific labels, excluding the computer
+        for (int i = 0; i < players.size(); i++) {
+            Player player = players.get(i);
             JLabel playerLabel = new JLabel(
                     player.getName() + ": Current Score = 0, Total Score = 0, Current Round = 1");
             playerLabels.add(playerLabel);
             labelContainer.add(playerLabel);
         }
-
         frame.setLayout(new BorderLayout());
         frame.add(diceContainer, BorderLayout.CENTER);
         frame.add(buttonContainer, BorderLayout.NORTH);
