@@ -336,7 +336,7 @@ public class Farkle implements ActionListener {
         gamesWonTracker.put(winnerName, gamesWon + 1);
 
         String message = winnerName + " Wins!";
-        Object[] options = { "Continue", "Exit" };
+        Object[] options = { "Play Again", "Exit" };
         int choice = JOptionPane.showOptionDialog(frame, message, "Game Over", JOptionPane.YES_NO_OPTION,
                 JOptionPane.INFORMATION_MESSAGE, null, options, options[0]);
 
